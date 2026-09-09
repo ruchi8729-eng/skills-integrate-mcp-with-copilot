@@ -7,9 +7,15 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <header>
-      <h1>Mergington High School</h1>
-      <h2>Extracurricular Activities</h2>
+    <header class="top-header">
+      <div class="header-title">
+        <h1>Mergington High School</h1>
+        <h2>Extracurricular Activities</h2>
+      </div>
+      <button id="teacher-login-toggle" class="login-toggle" type="button" aria-label="Teacher login">
+        <span class="login-icon">👤</span>
+        <span id="teacher-status-label">Teacher Login</span>
+      </button>
     </header>
 
     <main>
@@ -22,7 +28,10 @@
       </section>
 
       <section id="signup-container">
-        <h3>Sign Up for an Activity</h3>
+        <h3>Teacher Registration</h3>
+        <p id="teacher-notice" class="teacher-notice">
+          Teacher login required to register or unregister students.
+        </p>
         <form id="signup-form">
           <div class="form-group">
             <label for="email">Student Email:</label>
@@ -35,11 +44,32 @@
               <!-- Activity options will be loaded here -->
             </select>
           </div>
-          <button type="submit">Sign Up</button>
+          <button type="submit">Register Student</button>
         </form>
         <div id="message" class="hidden"></div>
       </section>
     </main>
+
+    <div id="login-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="login-modal-title">
+      <div class="modal-content">
+        <h3 id="login-modal-title">Teacher Login</h3>
+        <form id="login-form">
+          <div class="form-group">
+            <label for="teacher-username">Username:</label>
+            <input type="text" id="teacher-username" required placeholder="teacher username" />
+          </div>
+          <div class="form-group">
+            <label for="teacher-password">Password:</label>
+            <input type="password" id="teacher-password" required placeholder="teacher password" />
+          </div>
+          <div class="modal-actions">
+            <button type="submit">Log In</button>
+            <button type="button" id="close-login-modal" class="secondary-btn">Close</button>
+          </div>
+        </form>
+        <div id="login-message" class="message hidden"></div>
+      </div>
+    </div>
 
     <footer>
       <p>&copy; 2026 Mergington High School</p>

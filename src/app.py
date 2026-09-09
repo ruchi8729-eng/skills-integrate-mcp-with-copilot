@@ -5,11 +5,14 @@ A super simple FastAPI application that allows students to view and sign up
 for extracurricular activities at Mergington High School.
 """
 
-from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
+import base64
+import json
 import os
 from pathlib import Path
+
+from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI(title="Mergington High School API",
               description="API for viewing and signing up for extracurricular activities")
@@ -18,6 +21,43 @@ app = FastAPI(title="Mergington High School API",
 current_dir = Path(__file__).parent
 app.mount("/static", StaticFiles(directory=os.path.join(Path(__file__).parent,
           "static")), name="static")
+
+TEACHERS_FILE = current_dir / "teachers.json"
+
+
+def load_teachers():
+    with TEACHERS_FILE.open("r", encoding="utf-8") as file:
+        data = json.load(file)
+    return data.get("teachers", [])
+
+
+def is_valid_teacher(username: str, password: str) -> bool:
+    teachers = load_teachers()
+    return any(
+        teacher.get("username") == username and teacher.get("password") == password
+        for teacher in teachers
+    )
+
+
+def require_teacher_auth(authorization: str | None = Header(default=None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Teacher authentication required")
+
+    scheme, _, encoded = authorization.partition(" ")
+    if scheme.lower() != "basic" or not encoded:
+        raise HTTPException(status_code=401, detail="Teacher authentication required")
+
+    try:
+        decoded = base64.b64decode(encoded).decode("utf-8")
+        username, password = decoded.split(":", 1)
+    except (ValueError, UnicodeDecodeError, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid authentication format")
+
+    if not is_valid_teacher(username, password):
+        raise HTTPException(status_code=401, detail="Invalid teacher credentials")
+
+    return username
+
 
 # In-memory activity database
 activities = {
@@ -88,9 +128,35 @@ def get_activities():
     return activities
 
 
+@app.post("/teacher/login")
+def teacher_login(login_data: dict):
+    username = str(login_data.get("username", "")).strip()
+    password = str(login_data.get("password", "")).strip()
+
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="Username and password are required")
+
+    if not is_valid_teacher(username, password):
+        raise HTTPException(status_code=401, detail="Invalid teacher credentials")
+
+    return {"message": "Teacher login successful", "username": username}
+
+
+@app.get("/teacher/me")
+def get_current_teacher(authorization: str | None = Header(default=None)):
+    username = require_teacher_auth(authorization)
+    return {"username": username}
+
+
 @app.post("/activities/{activity_name}/signup")
-def signup_for_activity(activity_name: str, email: str):
-    """Sign up a student for an activity"""
+def signup_for_activity(
+    activity_name: str,
+    email: str,
+    authorization: str | None = Header(default=None),
+):
+    """Sign up a student for an activity. Teacher-only access."""
+    require_teacher_auth(authorization)
+
     # Validate activity exists
     if activity_name not in activities:
         raise HTTPException(status_code=404, detail="Activity not found")
@@ -111,8 +177,14 @@ def signup_for_activity(activity_name: str, email: str):
 
 
 @app.delete("/activities/{activity_name}/unregister")
-def unregister_from_activity(activity_name: str, email: str):
-    """Unregister a student from an activity"""
+def unregister_from_activity(
+    activity_name: str,
+    email: str,
+    authorization: str | None = Header(default=None),
+):
+    """Unregister a student from an activity. Teacher-only access."""
+    require_teacher_auth(authorization)
+
     # Validate activity exists
     if activity_name not in activities:
         raise HTTPException(status_code=404, detail="Activity not found")
